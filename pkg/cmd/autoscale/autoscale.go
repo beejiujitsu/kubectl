@@ -24,13 +24,17 @@ import (
 	"k8s.io/klog/v2"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	apiscore "k8s.io/api/core"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav2 "k8s.io/apimachinery/pkg/apis/meta/v2"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	autoscalingv1client "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
+	autoscalingv2client "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
 	"k8s.io/client-go/scale"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
@@ -260,17 +264,17 @@ func (o *AutoscaleOptions) Run() error {
 	return nil
 }
 
-func (o *AutoscaleOptions) createHorizontalPodAutoscaler(refName string, mapping *meta.RESTMapping) *autoscalingv1.HorizontalPodAutoscaler {
+func (o *AutoscaleOptions) createHorizontalPodAutoscaler(refName string, mapping *meta.RESTMapping) *autoscalingv2.HorizontalPodAutoscaler {
 	name := o.Name
 	if len(name) == 0 {
 		name = refName
 	}
 
-	scaler := autoscalingv1.HorizontalPodAutoscaler{
+	scaler := autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: autoscalingv1.HorizontalPodAutoscalerSpec{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
 				APIVersion: mapping.GroupVersionKind.GroupVersion().String(),
 				Kind:       mapping.GroupVersionKind.Kind,
@@ -284,9 +288,11 @@ func (o *AutoscaleOptions) createHorizontalPodAutoscaler(refName string, mapping
 		v := int32(o.Min)
 		scaler.Spec.MinReplicas = &v
 	}
+
+	}
 	if o.CPUPercent >= 0 {
 		c := int32(o.CPUPercent)
-		scaler.Spec.TargetCPUUtilizationPercentage = &c
+		scaler.Spec.Resource = autoscalingv2.HorizontalPodAutoscaler.ResourceMetricSource{Name: apiscore.ResourceCPU, TargetCPUUtilizationPercentage: &c}
 	}
 
 	return &scaler
